@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<title>ClipCut - ตัดช็อตเด่นจาก YouTube</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Noto Sans Thai", sans-serif;
+    background: #0f0f12;
+    color: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    padding: 40px 16px;
+    margin: 0;
+  }
+  .card {
+    background: #1a1a1f;
+    border-radius: 16px;
+    padding: 32px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.sub { color: #999; font-size: 14px; margin-bottom: 24px; }
+  input, select {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: #0f0f12;
+    color: #fff;
+    margin-bottom: 14px;
+    font-size: 14px;
+  }
+  label { font-size: 13px; color: #bbb; display: block; margin-bottom: 6px; }
+  button {
+    width: 100%;
+    padding: 13px;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(135deg, #6d5dfc, #a06dfc);
+    color: #fff;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  #status { margin-top: 18px; font-size: 14px; color: #ccc; min-height: 20px; }
+  #result { margin-top: 16px; }
+  video { width: 100%; border-radius: 10px; margin-top: 10px; }
+  .moments { margin-top: 12px; font-size: 13px; color: #aaa; }
+  .moment-item { padding: 6px 0; border-top: 1px solid #2a2a30; }
+  .error { color: #ff6b6b; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎬 ClipCut</h1>
+  <p class="sub">วางลิงก์ YouTube แล้วให้ AI ตัดช็อตเด่นมาต่อเป็นคลิปสั้นให้</p>
+
+  <label>ลิงก์ YouTube</label>
+  <input id="url" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+
+  <label>จำนวนช็อตเด่นที่ต้องการ</label>
+  <select id="clipCount">
+    <option value="2">2 ช็อต</option>
+    <option value="3" selected>3 ช็อต</option>
+    <option value="5">5 ช็อต</option>
+  </select>
+
+  <label>ความยาวสูงสุดต่อช็อต (วินาที)</label>
+  <select id="maxClipSeconds">
+    <option value="10">10 วินาที</option>
+    <option value="15" selected>15 วินาที</option>
+    <option value="30">30 วินาที</option>
+  </select>
+
+  <button id="submitBtn">ตัดคลิปให้ฉัน</button>
+  <div id="status"></div>
+  <div id="result"></div>
+</div>
+
+<script>
+const btn = document.getElementById("submitBtn");
+const statusEl = document.getElementById("status");
+const resultEl = document.getElementById("result");
+
+btn.addEventListener("click", async () => {
+  const youtubeUrl = document.getElementById("url").value.trim();
+  const clipCount = +document.getElementById("clipCount").value;
+  const maxClipSeconds = +document.getElementById("maxClipSeconds").value;
+
+  if (!youtubeUrl) {
+    statusEl.innerHTML = '<span class="error">กรุณาวางลิงก์ YouTube</span>';
+    return;
+  }
+
+  btn.disabled = true;
+  resultEl.innerHTML = "";
+  statusEl.textContent = "⏳ กำลังประมวลผล... (อาจใช้เวลา 1-3 นาที ขึ้นอยู่กับความยาววิดีโอ)";
+
+  try {
+    const res = await fetch("/api/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ youtubeUrl, clipCount, maxClipSeconds }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || "เกิดข้อผิดพลาด");
+
+    statusEl.textContent = "✅ เสร็จแล้ว!";
+    resultEl.innerHTML = `
+      <video controls src="${data.downloadUrl}"></video>
+      <div class="moments">
+        ${data.moments.map(m => `<div class="moment-item">⏱ ${m.start.toFixed(1)}s - ${m.end.toFixed(1)}s — ${m.reason}</div>`).join("")}
+      </div>
+    `;
+  } catch (err) {
+    statusEl.innerHTML = `<span class="error">❌ ${err.message}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
